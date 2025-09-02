@@ -1,32 +1,58 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import TodoItem from './TodoItem';
-import todosData from '../../data/todosData';
+import { USER } from '../utils/constants';
+import { getAllUserTodos, createNewUser, deleteAllTodos } from '../services/user';
+import { addTodo, deleteTodo } from '../services/todo';
 
 const TodoApp = () => {
   const [todoInput, setTodoInput] = useState('');
-  const [data, setData] = useState(todosData);
+  const [data, setData] = useState([]);
+
+  // -------- CREATE NEW USER AND FETCH TODOS --------
+  useEffect(() => {
+    const initApp = async () => {
+      const incomingTodos = await getAllUserTodos(USER);
+      if (!incomingTodos) {
+        await createNewUser(USER);
+      }
+      setData(incomingTodos);
+    };
+    initApp();
+  }, []);
 
   // -------- ADD TODO ON CLICK --------
-  const handleAddTodo = () => {
-    if (todoInput !== '') {
-      setData((prevTodosData) => [...prevTodosData, { todo: todoInput, id: data.length + 1 }]);
+  const handleAddTodo = async () => {
+    if (todoInput !== '' && todoInput.length < 40) {
+      const newTodo = await addTodo(USER, todoInput);
+      setData((prevTodoData) => [...prevTodoData, newTodo]);
       setTodoInput('');
+    } else {
+      alert('Please enter a todo between 1-40 characters long.');
     }
   };
-  // -------- DELETE TODO ON CLICK --------
-  const handleDeleteTodo = (id) => {
-    setData((prevTodoData) => {
-      return prevTodoData.filter((todo) => todo.id !== id);
-    });
-  };
+
   // -------- ADD TODO ON ENTER --------
   const handleAddOnEnter = (e) => {
     if (e.key === 'Enter') {
       handleAddTodo();
     }
   };
-	return (
-	<div className='main-container text-center'>
+
+  // -------- DELETE TODO ON CLICK --------
+  const handleDeleteTodo = async (id) => {
+    await deleteTodo(id);
+    setData((prevTodoData) => prevTodoData.filter((todo) => todo.id !== id));
+  };
+
+  // -------- DELETE ALL TODOS --------
+  const handleDeleteAllTodos = async () => {
+    await deleteAllTodos(USER);
+    await createNewUser(USER);
+    setData([]);
+  };
+
+  return (
+    <div className='main-container text-center'>
       <div className='row mb-3'>
         <div className='col'>
           <h1 className='display-1'>todos</h1>
@@ -47,14 +73,20 @@ const TodoApp = () => {
           </div>
         </div>
       </div>
-      {data.map(({ todo, id }) => {
-        return <TodoItem key={id} todo={todo} handleDeleteTodo={() => handleDeleteTodo(id)} />;
-      })}
+      {data.length > 0 &&
+        data.map((todo) => {
+          return <TodoItem key={todo.id} todo={todo} handleDeleteTodo={() => handleDeleteTodo(todo.id)} />;
+        })}
+      {data.length > 0 ? (
+        <button onClick={handleDeleteAllTodos} className='btn btn-danger my-3'>
+          Clear All Tasks
+        </button>
+      ) : null}
       <div className='items-left'>
         {data.length} {data.length === 1 ? 'item' : 'items'} left
       </div>
     </div>
-	);
+  );
 };
 
 export default TodoApp;
